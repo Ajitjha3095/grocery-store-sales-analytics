@@ -35,7 +35,7 @@
 | Power BI | See `/Dashboard` folder (`.pbix` file) |
 | Tableau Public | [Grocery Store Sales Analytics](https://public.tableau.com/app/profile/ajit.jha/viz/GroceryStoreSalesAnalytics/Dashboard1) |
 | Looker Studio | [Live Report](https://datastudio.google.com/s/uQV31od0ALk)|
-| GitHub Repo | [UAE-Beverages-Sales-Performance-2020-2025](https://github.com/Ajitjha3095/grocery-store-sales-analytics) |
+| GitHub Repo | [Grocery Store Sales Analytics](https://github.com/Ajitjha3095/grocery-store-sales-analytics) |
 
 
 
