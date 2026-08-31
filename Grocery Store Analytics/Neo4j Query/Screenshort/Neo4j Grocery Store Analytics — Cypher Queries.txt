@@ -1,0 +1,342 @@
+# Neo4j Grocery Store Analytics — Cypher Queries
+
+## Project
+Grocery Store Sales Analytics (2024–2026)
+
+Dataset:
+- customers.csv: 400 customers
+- products.csv: 96 products
+- sales.csv: 3,000 transactions
+- stores.csv: 8 stores
+
+## 1. Verify the database
+
+### Show labels
+```cypher
+CALL db.labels();
+```
+
+### Count nodes by label
+```cypher
+MATCH (n)
+RETURN labels(n) AS label, count(n) AS total
+ORDER BY total DESC;
+```
+
+### Show graph
+```cypher
+MATCH (n)-[r]->(m)
+RETURN n, r, m;
+```
+
+### Show schema
+```cypher
+CALL db.schema.visualization();
+```
+
+> During development, the database shown in Neo4j contained only `customers.csv` and `Sales`. Product/Store queries require those nodes and relationships to be imported successfully.
+
+## 2. Recommended final model
+
+Use professional labels:
+```text
+(:Customer)
+(:Sales)
+(:Product)
+(:Store)
+```
+
+Relationships:
+```text
+(:Customer)-[:PURCHASED]->(:Sales)
+(:Sales)-[:CONTAINS]->(:Product)
+(:Sales)-[:MADE_AT]->(:Store)
+```
+
+## 3. Customer queries
+
+### Count customers — current label
+```cypher
+MATCH (c:`customers.csv`)
+RETURN count(c) AS total_customers;
+```
+
+### Find customer
+```cypher
+MATCH (c:Customer)
+WHERE c.Customer_ID = 'C0001'
+RETURN c;
+```
+
+### Customer purchase history
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)
+WHERE c.Customer_ID = 'C0001'
+RETURN c.Customer_Name AS customer,
+       s.Order_ID AS order_id,
+       s.Order_Date AS order_date,
+       s.Revenue AS revenue,
+       s.Profit AS profit
+ORDER BY s.Order_Date;
+```
+
+### Products purchased by customer
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)-[:CONTAINS]->(p:Product)
+WHERE c.Customer_ID = 'C0001'
+RETURN DISTINCT c.Customer_Name AS customer,
+                p.Product_Name AS product;
+```
+
+### Stores used by customer
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)-[:MADE_AT]->(store:Store)
+WHERE c.Customer_ID = 'C0001'
+RETURN DISTINCT c.Customer_Name AS customer,
+                store.Store_Name AS store;
+```
+
+## 4. Sales & KPI queries
+
+### Total sales
+```cypher
+MATCH (s:Sales)
+RETURN count(s) AS total_sales;
+```
+
+### Total revenue
+```cypher
+MATCH (s:Sales)
+RETURN round(sum(s.Revenue), 2) AS total_revenue;
+```
+
+### Total profit
+```cypher
+MATCH (s:Sales)
+RETURN round(sum(s.Profit), 2) AS total_profit;
+```
+
+### Profit margin
+```cypher
+MATCH (s:Sales)
+RETURN round(100.0 * sum(s.Profit) / sum(s.Revenue), 2)
+       AS profit_margin_percent;
+```
+
+### Revenue and profit by year
+```cypher
+MATCH (s:Sales)
+WITH substring(s.Order_Date, 0, 4) AS year,
+     sum(s.Revenue) AS revenue,
+     sum(s.Profit) AS profit
+RETURN year,
+       round(revenue, 2) AS revenue,
+       round(profit, 2) AS profit
+ORDER BY year;
+```
+
+## 5. Product analysis
+
+### Count products
+```cypher
+MATCH (p:Product)
+RETURN count(p) AS total_products;
+```
+
+### Top 10 products by revenue
+```cypher
+MATCH (s:Sales)-[:CONTAINS]->(p:Product)
+RETURN p.Product_Name AS product,
+       round(sum(s.Revenue), 2) AS revenue
+ORDER BY revenue DESC
+LIMIT 10;
+```
+
+### Top 10 by quantity
+```cypher
+MATCH (s:Sales)-[:CONTAINS]->(p:Product)
+RETURN p.Product_Name AS product,
+       sum(s.Quantity) AS units_sold
+ORDER BY units_sold DESC
+LIMIT 10;
+```
+
+### Revenue by category
+```cypher
+MATCH (s:Sales)-[:CONTAINS]->(p:Product)
+RETURN p.Category AS category,
+       round(sum(s.Revenue), 2) AS revenue
+ORDER BY revenue DESC;
+```
+
+### Profit by category
+```cypher
+MATCH (s:Sales)-[:CONTAINS]->(p:Product)
+RETURN p.Category AS category,
+       round(sum(s.Profit), 2) AS profit
+ORDER BY profit DESC;
+```
+
+## 6. Store analysis
+
+### Count stores
+```cypher
+MATCH (store:Store)
+RETURN count(store) AS total_stores;
+```
+
+### Revenue by store
+```cypher
+MATCH (s:Sales)-[:MADE_AT]->(store:Store)
+RETURN store.Store_Name AS store,
+       round(sum(s.Revenue), 2) AS revenue
+ORDER BY revenue DESC;
+```
+
+### Profit by store
+```cypher
+MATCH (s:Sales)-[:MADE_AT]->(store:Store)
+RETURN store.Store_Name AS store,
+       round(sum(s.Profit), 2) AS profit
+ORDER BY profit DESC;
+```
+
+### Revenue by city
+```cypher
+MATCH (s:Sales)-[:MADE_AT]->(store:Store)
+RETURN store.City AS city,
+       round(sum(s.Revenue), 2) AS revenue
+ORDER BY revenue DESC;
+```
+
+## 7. Customer segmentation
+
+### Revenue by member type
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)
+RETURN c.Member_Type AS member_type,
+       round(sum(s.Revenue), 2) AS revenue
+ORDER BY revenue DESC;
+```
+
+### Profit by member type
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)
+RETURN c.Member_Type AS member_type,
+       round(sum(s.Profit), 2) AS profit
+ORDER BY profit DESC;
+```
+
+### Top 10 customers
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)
+RETURN c.Customer_Name AS customer,
+       round(sum(s.Revenue), 2) AS revenue
+ORDER BY revenue DESC
+LIMIT 10;
+```
+
+## 8. Graph traversal
+
+### Customers who bought a product
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)-[:CONTAINS]->(p:Product)
+WHERE p.Product_Name = 'Blanket'
+RETURN DISTINCT c.Customer_Name AS customer;
+```
+
+### Customers who bought the same product
+```cypher
+MATCH (c1:Customer)-[:PURCHASED]->(s1:Sales)-[:CONTAINS]->(p:Product)
+      <-[:CONTAINS]-(s2:Sales)<-[:PURCHASED]-(c2:Customer)
+WHERE c1 <> c2
+RETURN DISTINCT c1.Customer_Name AS customer_1,
+                c2.Customer_Name AS customer_2,
+                p.Product_Name AS common_product
+ORDER BY customer_1, customer_2;
+```
+
+## 9. Advanced interview query — recommendation
+
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s1:Sales)-[:CONTAINS]->(p1:Product)
+      <-[:CONTAINS]-(s2:Sales)<-[:PURCHASED]-(other:Customer)
+      -[:PURCHASED]->(s3:Sales)-[:CONTAINS]->(p2:Product)
+WHERE c.Customer_ID = 'C0001'
+  AND c <> other
+  AND p1 <> p2
+RETURN p2.Product_Name AS recommended_product,
+       count(*) AS recommendation_score
+ORDER BY recommendation_score DESC
+LIMIT 5;
+```
+
+## 10. Complete customer journey
+
+```cypher
+MATCH (c:Customer)-[:PURCHASED]->(s:Sales)-[:CONTAINS]->(p:Product)
+MATCH (s)-[:MADE_AT]->(store:Store)
+WHERE c.Customer_ID = 'C0001'
+RETURN c.Customer_Name AS customer,
+       s.Order_ID AS order_id,
+       s.Order_Date AS order_date,
+       p.Product_Name AS product,
+       p.Category AS category,
+       store.Store_Name AS store,
+       s.Quantity AS quantity,
+       s.Revenue AS revenue,
+       s.Profit AS profit
+ORDER BY s.Order_Date;
+```
+
+## 11. Data quality checks
+
+### Sales without customer
+```cypher
+MATCH (s:Sales)
+WHERE NOT (s)<-[:PURCHASED]-(:Customer)
+RETURN count(s) AS sales_without_customer;
+```
+
+### Sales without product
+```cypher
+MATCH (s:Sales)
+WHERE NOT (s)-[:CONTAINS]->(:Product)
+RETURN count(s) AS sales_without_product;
+```
+
+### Sales without store
+```cypher
+MATCH (s:Sales)
+WHERE NOT (s)-[:MADE_AT]->(:Store)
+RETURN count(s) AS sales_without_store;
+```
+
+### Duplicate Customer IDs
+```cypher
+MATCH (c:Customer)
+WITH c.Customer_ID AS customer_id, count(*) AS occurrences
+WHERE occurrences > 1
+RETURN customer_id, occurrences
+ORDER BY occurrences DESC;
+```
+
+## 12. Interview priority
+
+Practice these first:
+1. `CALL db.labels()`
+2. Count nodes by label
+3. Customer → Sales
+4. Customer → Product
+5. Customer → Store
+6. Total Revenue
+7. Total Profit
+8. Profit Margin
+9. Top 10 Products
+10. Revenue by Category
+11. Revenue by Store
+12. Top Customers
+13. Same-product customers
+14. Product recommendation
+15. Complete customer journey
+
